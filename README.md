@@ -2,7 +2,7 @@
 
 f - very simple and stupid (yet) console file manager for UNIX systems. Written just for learning Rust and Linux, don't take the project as something serious. It's a common student craft.
 
-![](assets/v0.1.0-02.02.25.png)
+![](assets/v0.1.0-03.02.25.png)
 
 ## Features
 
@@ -13,6 +13,7 @@ f - very simple and stupid (yet) console file manager for UNIX systems. Written 
 - [ ] View information about file;
 - [ ] Creating directories and files;
 - [ ] Formatting disks (need `root` permissions);
+- [ ] Color schemes;
 
 ## Interface
 
