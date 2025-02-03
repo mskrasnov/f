@@ -1,0 +1,2 @@
+//! Write navigation history
+

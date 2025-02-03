@@ -1,0 +1,21 @@
+[title]
+background = 30
+text = 93
+text_modifier = 1
+
+[panels]
+background = 98
+border_active = 34
+border_inactive = 30
+file = 37
+exec_file = 32
+link = 39
+special_file = 36
+dir = 34
+dir_modifier = 1
+
+[footer]
+key_code = 31
+key_code_modifier = 1
+key_title = 30
+background = 38

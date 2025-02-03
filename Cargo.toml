@@ -1,0 +1,22 @@
+[package]
+name = "f"
+version = "0.1.0"
+edition = "2021"
+description = "Simple console file manager"
+authors = ["Michail Krasnov <michail383krasnov@mail.ru>"]
+license = "MIT"
+
+[profile.release]
+lto = true
+strip = true
+debug = false
+panic = "abort"
+opt-level = "s"
+
+[dependencies]
+anyhow = "1.0.95"
+crossterm = "0.28.1"
+ratatui = "0.29.0"
+serde = { version = "1.0.217", features = ["derive"] }
+toml = "0.8.19"
+uuid = { version = "1.12.1", features = ["v4", "fast-rng"] }
