@@ -8,13 +8,14 @@
  *****************************************************************************/
 
 pub mod consts;
-pub mod ftype;
+pub mod ftype; // complete
 pub mod history;
-pub mod traits;
+pub mod traits; // complete
 pub mod tui;
-pub mod utils;
+pub mod utils; // complete
 pub mod os_release;
-pub mod recycle_bin;
+pub mod recycle_bin; // complete
+pub mod init;
 
 // NOTE: experimental module
 pub mod tui_new;
@@ -24,6 +25,8 @@ use ftype::*;
 use std::env;
 
 fn main() -> Result<()> {
+    init::create_dirs()?;
+
     let args = env::args().collect::<Vec<_>>();
     let binding = ".".to_string();
     let fpth = args.get(1).unwrap_or(&binding);
