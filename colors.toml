@@ -15,14 +15,14 @@ file_selected = 30
 exec_file = 32
 exec_file_selected = 30
 
-link = 32
+link = 38
 link_selected = 33
 
 special_file = 36
 
 dir = 34
 
-hidden = 38
+hidden = 33
 selection_color = 94
 
 header_bg = 38
