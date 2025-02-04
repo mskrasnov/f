@@ -50,11 +50,34 @@ fn get_file_color(f: &FileEntry, cols: colors::Panels) -> Color {
         }
         .unwrap_or_default()
     } else {
+        /* Для скрытого файла нужно использовать в зависимости от основного цвета:
+         *  - более светлый цвет. Например, если для обычного файла был Blue, для скрытого - Light Blue;
+         *  - более тёмный цвет. Например, Light Blue -> Blue;
+         *
+         * Для этого смотрим значение основного цвета и прибавляем/вычитаем из него 60, поскольку
+         * разница между обычным и светлым вариантом - 60.
+         */
         match f.file_type {
-            FileType::Directory | FileType::ParentDirectory => color_from_u8(cols.dir + 60),
-            FileType::Link => color_from_u8(cols.link + 60),
-            FileType::Special => color_from_u8(cols.special_file + 60),
-            _ => color_from_u8(cols.file + 60),
+            FileType::Directory | FileType::ParentDirectory => color_from_u8(if cols.dir <= 38 {
+                cols.dir + 60
+            } else {
+                cols.dir - 60
+            }),
+            FileType::Link => color_from_u8(if cols.link <= 38 {
+                cols.link + 60
+            } else {
+                cols.link - 60
+            }),
+            FileType::Special => color_from_u8(if cols.special_file <= 38 {
+                cols.special_file + 60
+            } else {
+                cols.special_file - 60
+            }),
+            _ => color_from_u8(if cols.file <= 38 {
+                cols.file + 60
+            } else {
+                cols.file - 60
+            }),
         }
         .unwrap_or_default()
     }
@@ -114,8 +137,10 @@ impl F {
         self.rows = {
             let dir = fs::read_dir(&self.current_dir)?;
             let mut rows = dir
-                .map(|entry| FileEntry::from_dir_entry(&entry.unwrap()).unwrap())
+                .filter_map(|entry| entry.ok()) // обрабатываем только то, что можем прочитать
+                .filter_map(|entry| FileEntry::from_dir_entry(&entry).ok()) // обрабатываем только то, что можем использовать
                 .collect::<Vec<_>>();
+
             if !self.show_hidden {
                 rows = rows
                     .iter()
@@ -129,10 +154,12 @@ impl F {
                     .collect::<Vec<_>>();
             }
 
+            rows.sort_by_key(|key| key.file_name.clone());
+
             if &self.current_dir != Path::new("/") {
                 rows.insert(0, up_dir(&self.current_dir));
             };
-            rows.sort_by_key(|key| key.file_name.clone());
+
             rows
         };
 
