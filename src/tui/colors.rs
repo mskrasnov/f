@@ -70,8 +70,6 @@ pub struct Panels {
     pub special_file_modifier: Option<u8>,
     pub dir: u8,
     pub dir_modifier: Option<u8>,
-    // pub shadow_file: u8,
-    // pub shadow_file_modifier: Option<u8>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Copy)]
@@ -189,8 +187,6 @@ impl Default for Panels {
             special_file_modifier: None,
             dir: 34,
             dir_modifier: Some(1),
-            // shadow_file: 38,
-            // shadow_file_modifier: None,
         }
     }
 }
