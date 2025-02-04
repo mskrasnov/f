@@ -13,7 +13,7 @@ f - very simple and stupid (yet) console file manager for UNIX systems. Written 
 - [ ] View information about file;
 - [ ] Creating directories and files;
 - [ ] Formatting disks (need `root` permissions);
-- [ ] Color schemes;
+- [X] Color schemes;
 
 ## Interface
 
@@ -23,18 +23,18 @@ The interface is divided into two panels: the first panel contains a list of fil
 
 **Hotkeys:**
 
-- <kbd>F1</kbd> - print help;
+<!-- - <kbd>F1</kbd> - print help;
 - <kbd>F2</kbd> - view file metadata in right panel;
 - <kbd>F3</kbd> - view file contents in right panel;
 - <kbd>F4</kbd> - open file in the internal program (editor or other software);
 - <kbd>F5</kbd> - copy file in the specified path;
 - <kbd>F6</kbd> - move/rename file;
-- <kbd>F7</kbd> - create new directory;
+- <kbd>F7</kbd> - create new directory; -->
 - <kbd>F8</kbd> - delete file;
-- <kbd>F9</kbd> - select menubar;
+<!-- - <kbd>F9</kbd> - select menubar; -->
 - <kbd>F10</kbd>, <kbd>q</kbd>, <kbd>й</kbd> - exit `f`;
-- <kbd>Tab</kbd> - switch between panels (TODO);
-- <kbd>Shift</kbd> - select file/dir (TODO);
+<!-- - <kbd>Tab</kbd> - switch between panels (TODO);
+- <kbd>Shift</kbd> - select file/dir (TODO); -->
 - <kbd>~</kbd> - go to the home directory (`~`);
 - <kbd>/</kbd> - go to the root directory (`/`);
 - <kbd>.</kbd> - show hidden files;
