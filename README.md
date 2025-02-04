@@ -30,7 +30,8 @@ The interface is divided into two panels: the first panel contains a list of fil
 - <kbd>F5</kbd> - copy file in the specified path;
 - <kbd>F6</kbd> - move/rename file;
 - <kbd>F7</kbd> - create new directory; -->
-- <kbd>F8</kbd> - delete file;
+- <kbd>F8</kbd> - force delete file;
+- <kbd>Del</kbd> - delete file to recycle bin;
 <!-- - <kbd>F9</kbd> - select menubar; -->
 - <kbd>F10</kbd>, <kbd>q</kbd>, <kbd>й</kbd> - exit `f`;
 <!-- - <kbd>Tab</kbd> - switch between panels (TODO);

@@ -104,6 +104,23 @@ impl F {
                     {
                         self.error_text = Some("Failed to remove parent directory".to_string());
                     } else {
+                        if let Err(why) = selected.remove() {
+                            self.error_text = Some(why.to_string());
+                        } else {
+                            if let Err(why) = self.rescan_dir() {
+                                self.error_text = Some(why.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+            KeyCode::Delete => {
+                if let Some(selected) = &self.selected {
+                    if selected.file_name == OsString::from_str(".. [UP]").unwrap()
+                        || self.idx == Some(0)
+                    {
+                        self.error_text = Some("Failed to remove parent directory".to_string());
+                    } else {
                         if let Err(why) = selected.remove_bin() {
                             self.error_text = Some(why.to_string());
                         } else {
