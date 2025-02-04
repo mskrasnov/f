@@ -15,10 +15,10 @@ file_selected = 30
 exec_file = 32
 exec_file_selected = 30
 
-link = 38
+link = 35
 link_selected = 33
 
-special_file = 36
+special_file = 31
 
 dir = 34
 
