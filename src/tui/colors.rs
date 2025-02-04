@@ -36,7 +36,7 @@
 
 use core::str;
 
-use crate::traits::Toml;
+use crate::{traits::Toml, FileEntry, FileType};
 use ratatui::style::{Color, Style, Stylize};
 use serde::{Deserialize, Serialize};
 
@@ -64,26 +64,26 @@ pub struct Panels {
     pub border_inactive: u8,
 
     pub file: u8,
-    pub file_selected: Option<u8>,
     pub file_modifier: Option<u8>,
 
     pub exec_file: u8,
-    pub exec_file_selected: Option<u8>,
     pub exec_file_modifier: Option<u8>,
 
     pub link: u8,
-    pub link_selected: Option<u8>,
     pub link_modifier: Option<u8>,
 
     pub special_file: u8,
-    pub special_file_selected: Option<u8>,
     pub special_file_modifier: Option<u8>,
 
     pub dir: u8,
-    pub dir_selected: Option<u8>,
     pub dir_modifier: Option<u8>,
 
+    pub hidden: u8,
+
     pub selection_color: u8,
+
+    pub header_bg: u8,
+    pub header_fg: u8,
 }
 
 #[derive(Deserialize, Serialize, Clone, Copy)]
@@ -193,27 +193,25 @@ impl Default for Panels {
             border_inactive: 30,
 
             file: 37,
-            file_selected: Some(30),
             file_modifier: None,
 
             exec_file: 32,
-            exec_file_selected: Some(30),
             exec_file_modifier: None,
 
             link: 32,
-            link_selected: Some(33),
             link_modifier: None,
 
             special_file: 36,
-            special_file_selected: None,
             special_file_modifier: None,
 
             dir: 34,
-            dir_selected: None,
-            // dir_modifier: Some(1),
             dir_modifier: None,
 
+            hidden: 38,
             selection_color: 96,
+
+            header_bg: 98,
+            header_fg: 38,
         }
     }
 }
@@ -227,6 +225,74 @@ impl Default for Footer {
             key_title_modifier: None,
             background: 38,
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct FileColor<'a> {
+    pub entry: &'a FileEntry,
+    pub cols: Panels,
+    pub selected: bool,
+}
+
+impl<'a> FileColor<'a> {
+    fn bg(&self) -> Option<Color> {
+        color_from_u8(if self.selected && !self.entry.is_hidden {
+            self.cols.selection_color
+        } else {
+            self.cols.background
+        })
+    }
+
+    fn fg_not_hidden(&self) -> Option<Color> {
+        color_from_u8(match self.entry.file_type {
+            FileType::Directory | FileType::ParentDirectory => self.cols.dir,
+            FileType::Link => self.cols.link,
+            FileType::FileExecutable => self.cols.exec_file,
+            FileType::Special => self.cols.special_file,
+            FileType::File => self.cols.file,
+        })
+    }
+
+    fn fg_hidden(&self) -> Option<Color> {
+        color_from_u8(self.cols.hidden)
+    }
+
+    fn fg(&self) -> Option<Color> {
+        if self.entry.is_hidden {
+            self.fg_hidden()
+        } else {
+            self.fg_not_hidden()
+        }
+    }
+
+    fn modifier(&self) -> Modifier {
+        Modifier::from(match self.entry.file_type {
+            FileType::File | FileType::FileExecutable => self.cols.file_modifier.unwrap_or(8),
+            FileType::Directory | FileType::ParentDirectory => self.cols.dir_modifier.unwrap_or(8),
+            FileType::Link => self.cols.link_modifier.unwrap_or(8),
+            FileType::Special => self.cols.special_file_modifier.unwrap_or(8),
+        })
+    }
+
+    pub fn style(&self) -> Style {
+        let mut style = Style::default()
+            .bg(self.bg().unwrap_or_default())
+            .fg(self.fg().unwrap_or_default());
+
+        let modifier = self.modifier();
+        match modifier {
+            Modifier::Bold => style = style.bold(),
+            Modifier::Italic => style = style.italic(),
+            Modifier::Underline => style = style.underlined(),
+            Modifier::BoldItalic => style = style.bold().italic(),
+            Modifier::BoldUnderline => style = style.bold().underlined(),
+            Modifier::ItalicUnderline => style = style.italic().underlined(),
+            Modifier::BoldItalicUnderline => style = style.bold().italic().underlined(),
+            _ => {}
+        }
+
+        style
     }
 }
 

@@ -5,7 +5,8 @@ text_modifier = 1
 
 [panels]
 background = 98
-border_active = 34
+
+border_active = 98
 border_inactive = 30
 
 file = 37
@@ -20,9 +21,12 @@ link_selected = 33
 special_file = 36
 
 dir = 34
-dir_selected = 35
 
-selection_color = 30
+hidden = 38
+selection_color = 94
+
+header_bg = 38
+header_fg = 30
 
 [footer]
 key_code = 31
