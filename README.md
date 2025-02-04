@@ -36,6 +36,7 @@ The interface is divided into two panels: the first panel contains a list of fil
 - <kbd>Tab</kbd> - switch between panels (TODO);
 - <kbd>Shift</kbd> - select file/dir (TODO);
 - <kbd>~</kbd> - go to the home directory (`~`);
+- <kbd>/</kbd> - go to the root directory (`/`);
 - <kbd>.</kbd> - show hidden files;
 
 ## Build & install
