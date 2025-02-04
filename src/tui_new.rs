@@ -201,9 +201,6 @@ impl F {
     }
 
     fn update_colors(&mut self) {
-        // if let Ok(cols) = Colors::parse("./colors.toml") {
-        //     self.colors = cols;
-        // }
         match Colors::parse("./colors.toml") {
             Ok(colors) => self.colors = colors,
             Err(why) => self.error_text = Some(why.to_string()),
