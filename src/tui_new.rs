@@ -224,11 +224,34 @@ impl F {
         }
     }
 
+    fn keys(&self) -> Line<'_> {
+        Line::from(vec![
+            "F8".bold().red(),
+            " Force delete  ".into(),
+            "Del".bold().red(),
+            " Safe delete  ".into(),
+            "~".bold().red(),
+            " Go home  ".into(),
+            "/".bold().red(),
+            " Go root  ".into(),
+            ".".bold().red(),
+            " Show hidden  ".into(),
+            "q".bold().red(),
+            " Quit".into(),
+        ])
+    }
+
     fn ui(&mut self, frame: &mut Frame) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Min(5), Constraint::Length(1)])
+            .constraints([
+                Constraint::Length(1),
+                Constraint::Min(5),
+                Constraint::Length(1),
+            ])
             .split(frame.area());
+
+        frame.render_widget(self.keys(), chunks[2]);
 
         let tcols = self.colors.title;
         let title = match &self.error_text {
@@ -242,16 +265,12 @@ impl F {
                 .fg(Color::Red)
                 .centered(),
         };
-        frame.render_widget(title, chunks[1]);
+        frame.render_widget(title, chunks[0]);
 
         let fcols = self.colors.panels;
         let mut files_block = Block::bordered()
             .border_set(border::DOUBLE)
-            .style(
-                Style::default()
-                    // .bg(color_from_u8(fcols.border_active).unwrap_or_default())
-                    .fg(color_from_u8(fcols.file).unwrap_or_default()),
-            )
+            .style(Style::default().fg(color_from_u8(fcols.file).unwrap_or_default()))
             .set_style(get_style(fcols.border_active, fcols.file_modifier))
             .title(match &self.selected {
                 Some(selected) => format!(
@@ -298,16 +317,19 @@ impl F {
             .unwrap_or(0);
 
         let rows = self.rows.iter().map(|item| {
+            let style = FileColor {
+                entry: item,
+                cols: fcols,
+                selected: item.is_hidden,
+            }
+            .style();
+
             Row::new(vec![
-                item.file_name.to_string_lossy().to_string().set_style(
-                    FileColor {
-                        entry: item,
-                        cols: fcols,
-                        selected: item.is_hidden,
-                    }
-                    .style(),
-                ),
-                item.file_type.to_string().into(),
+                item.file_name
+                    .to_string_lossy()
+                    .to_string()
+                    .set_style(style.clone()),
+                item.file_type.to_string().set_style(style),
                 item.size().to_string().into(),
             ])
         });
