@@ -8,6 +8,8 @@ use std::{
     path::PathBuf,
 };
 
+use crate::recycle_bin::*;
+
 /// Some file from current listed directory
 #[derive(Debug, Clone)]
 pub struct FileEntry {
@@ -62,6 +64,12 @@ impl FileEntry {
             fs::remove_file(&self.path)?;
         }
         Ok(())
+    }
+
+    /// Remove file/dir to recycle bin
+    pub fn remove_bin(&self) -> Result<()> {
+        let entry = RecycleBinEntry::new(&self.path.display());
+        entry.safe_delete()
     }
 }
 
