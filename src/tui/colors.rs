@@ -32,6 +32,7 @@
 //! | B&U       | 5    |
 //! | I&U       | 6    |
 //! | B&I&U     | 7    |
+//! | None      | 8    |
 
 use core::str;
 
@@ -58,18 +59,31 @@ pub struct Title {
 #[derive(Deserialize, Serialize, Clone, Copy)]
 pub struct Panels {
     pub background: u8,
+
     pub border_active: u8,
     pub border_inactive: u8,
+
     pub file: u8,
+    pub file_selected: Option<u8>,
     pub file_modifier: Option<u8>,
+
     pub exec_file: u8,
+    pub exec_file_selected: Option<u8>,
     pub exec_file_modifier: Option<u8>,
+
     pub link: u8,
+    pub link_selected: Option<u8>,
     pub link_modifier: Option<u8>,
+
     pub special_file: u8,
+    pub special_file_selected: Option<u8>,
     pub special_file_modifier: Option<u8>,
+
     pub dir: u8,
+    pub dir_selected: Option<u8>,
     pub dir_modifier: Option<u8>,
+
+    pub selection_color: u8,
 }
 
 #[derive(Deserialize, Serialize, Clone, Copy)]
@@ -177,16 +191,29 @@ impl Default for Panels {
             background: 98,
             border_active: 34,
             border_inactive: 30,
+
             file: 37,
+            file_selected: Some(30),
             file_modifier: None,
+
             exec_file: 32,
+            exec_file_selected: Some(30),
             exec_file_modifier: None,
+
             link: 32,
+            link_selected: Some(33),
             link_modifier: None,
+
             special_file: 36,
+            special_file_selected: None,
             special_file_modifier: None,
+
             dir: 34,
-            dir_modifier: Some(1),
+            dir_selected: None,
+            // dir_modifier: Some(1),
+            dir_modifier: None,
+
+            selection_color: 96,
         }
     }
 }

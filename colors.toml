@@ -7,12 +7,22 @@ text_modifier = 1
 background = 98
 border_active = 34
 border_inactive = 30
+
 file = 37
+file_selected = 30
+
 exec_file = 32
-link = 33
+exec_file_selected = 30
+
+link = 32
+link_selected = 33
+
 special_file = 36
+
 dir = 34
-dir_modifier = 1
+dir_selected = 35
+
+selection_color = 30
 
 [footer]
 key_code = 31

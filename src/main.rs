@@ -16,6 +16,9 @@ pub mod utils;
 pub mod os_release;
 pub mod recycle_bin;
 
+// NOTE: experimental module
+pub mod tui_new;
+
 use anyhow::Result;
 use ftype::*;
 use std::env;
@@ -26,7 +29,7 @@ fn main() -> Result<()> {
     let fpth = args.get(1).unwrap_or(&binding);
 
     let mut term = ratatui::init();
-    let rslt = tui::F::new(fpth)?.run(&mut term);
+    let rslt = tui_new::F::new(fpth)?.run(&mut term);
     ratatui::restore();
 
     rslt
