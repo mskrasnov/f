@@ -32,8 +32,13 @@ fn main() -> Result<()> {
     let binding = ".".to_string();
     let fpth = args.get(1).unwrap_or(&binding);
 
+    // Создание экземпляра `tui` до инициализации терминала для того, чтобы
+    // гарантировать, что `ratatui` будет проинициализирован только в случае
+    // успешного создания экземпляра.
+    let mut tui = tui::F::new(fpth)?;
+
     let mut term = ratatui::init();
-    let rslt = tui::F::new(fpth)?.run(&mut term);
+    let rslt = tui.run(&mut term);
     ratatui::restore();
 
     rslt
