@@ -319,7 +319,13 @@ impl<'a> FilesView<'a> {
                         //               text files may be executable
                         FileType::File | FileType::FileExecutable => {
                             match fs::read_to_string(&selected.path) {
-                                Ok(string) => string,
+                                Ok(string) => {
+                                    if string.is_empty() {
+                                        format!("-- Empty file --")
+                                    } else {
+                                        string
+                                    }
+                                }
                                 Err(why) => format!("-- Failed to show file ({why}) --"),
                             }
                         }
