@@ -27,6 +27,7 @@ use std::{
 pub struct F {
     colors: Colors,
     show_hidden: bool,
+    show_preview: bool,
     error_text: Option<String>,
 
     ts: TableState,
@@ -55,6 +56,7 @@ impl F {
             idx: None,
             error_text: None,
             show_hidden: false,
+            show_preview: true,
 
             is_exit: false,
         })
@@ -193,6 +195,9 @@ impl F {
                     self.error_text = Some(why.to_string());
                 }
             }
+            KeyCode::Char('p') => {
+                self.show_preview = !self.show_preview;
+            }
 
             KeyCode::Enter => {
                 self.remove_error_msg();
@@ -236,6 +241,8 @@ impl F {
             " Go root  ".into(),
             ".".bold().red(),
             " Show hidden  ".into(),
+            "p".bold().red(),
+            " Show preview  ".into(),
             "q".bold().red(),
             " Quit".into(),
         ])
@@ -309,13 +316,14 @@ impl<'a> FilesView<'a> {
                     "-- File too large (> 10 MBytes) --".to_string()
                 } else {
                     match selected.file_type {
+                        //               text files may be executable
                         FileType::File | FileType::FileExecutable => {
                             match fs::read_to_string(&selected.path) {
                                 Ok(string) => string,
                                 Err(why) => format!("-- Failed to show file ({why}) --"),
                             }
                         }
-                        _ => String::from("-- This type doesn't supported to show! --"),
+                        _ => String::from("-- This file type doesn't supported to show --"),
                     }
                 }
             }
@@ -418,12 +426,16 @@ impl<'a> FilesView<'a> {
     }
 
     pub fn ui(&mut self, area: Rect, frame: &mut Frame) {
-        let chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(area);
+        if self.f.show_preview {
+            let chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .split(area);
 
-        self.files_list(chunks[0], frame);
-        self.panel_preview(chunks[1], frame);
+            self.files_list(chunks[0], frame);
+            self.panel_preview(chunks[1], frame);
+        } else {
+            self.files_list(area, frame);
+        }
     }
 }
