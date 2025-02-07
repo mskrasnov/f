@@ -269,92 +269,6 @@ impl F {
 
         let mut ui = FilesView { f: self };
         ui.ui(chunks[1], frame);
-
-        /*let fcols = self.colors.panels;
-        let mut files_block = Block::bordered()
-            .border_set(border::DOUBLE)
-            .style(Style::default().fg(color_from_u8(fcols.file).unwrap_or_default()))
-            .set_style(get_style(fcols.border_active, fcols.file_modifier))
-            .title(match &self.selected {
-                Some(selected) => format!(
-                    " {} ({}/{}) ",
-                    selected.file_name.to_string_lossy(),
-                    self.idx.unwrap_or(0) + 1,
-                    self.rows.len()
-                ),
-                None => String::new(),
-            })
-            .title_top(
-                Line::from(format!(" {} files in this dir ", self.rows.len())).right_aligned(),
-            )
-            .title_top(
-                Line::from(format!(
-                    " {} ",
-                    fs::canonicalize(&self.current_dir).unwrap().display()
-                ))
-                .centered()
-                .bg(color_from_u8(fcols.header_bg).unwrap_or_default())
-                .fg(color_from_u8(fcols.header_fg).unwrap_or_default()),
-            );
-
-        if self.show_hidden {
-            files_block = files_block.title_bottom(" Show hidden files ON ");
-        }
-
-        if self.ts.selected().is_none() && !self.rows.is_empty() {
-            self.ts.select(Some(0));
-        }
-
-        self.ts
-            .selected()
-            .and_then(|n| self.rows.get(n).cloned())
-            .clone_into(&mut self.selected);
-
-        let max_size_fname_len: u16 = self
-            .rows
-            .iter()
-            .map(|f| f.file_name.len())
-            .max()
-            .unwrap_or(0)
-            .try_into()
-            .unwrap_or(0);
-
-        let rows = self.rows.iter().map(|item| {
-            let style = FileColor {
-                entry: item,
-                cols: fcols,
-                selected: item.is_hidden,
-            }
-            .style();
-
-            Row::new(vec![
-                item.file_name
-                    .to_string_lossy()
-                    .to_string()
-                    .set_style(style.clone()),
-                item.file_type.to_string().set_style(style),
-                item.size().to_string().into(),
-            ])
-        });
-        let widths = [
-            Constraint::Min(max_size_fname_len),
-            Constraint::Length(10),
-            Constraint::Min(10),
-        ];
-
-        let table = Table::new(rows, widths)
-            .style(Style::new().bg(color_from_u8(fcols.background).unwrap_or_default()))
-            .row_highlight_style(
-                Style::new().bg(color_from_u8(fcols.selection_color).unwrap_or_default()),
-            )
-            .block(files_block.clone());
-
-        StatefulWidget::render(
-            table,
-            files_block.inner(frame.area()),
-            frame.buffer_mut(),
-            &mut self.ts,
-        );*/
     }
 
     pub fn run(&mut self, term: &mut DefaultTerminal) -> Result<()> {
@@ -396,8 +310,10 @@ impl<'a> FilesView<'a> {
                 } else {
                     match selected.file_type {
                         FileType::File | FileType::FileExecutable => {
-                            fs::read_to_string(&selected.path)
-                                .unwrap_or(format!("-- Failed to show file! --"))
+                            match fs::read_to_string(&selected.path) {
+                                Ok(string) => string,
+                                Err(why) => format!("-- Failed to show file ({why}) --"),
+                            }
                         }
                         _ => String::from("-- This type doesn't supported to show! --"),
                     }
