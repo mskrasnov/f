@@ -2,7 +2,7 @@
 
 f - very simple, stupid (yet) and bloat console file manager for UNIX systems. Written just for learning Rust and Linux, don't take the project as something serious. It's a common student craft.
 
-![](assets/v0.1.0-03.02.25.png)
+![](assets/v0.1.0-07.02.25.png)
 
 ## Features
 
