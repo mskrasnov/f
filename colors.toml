@@ -23,9 +23,11 @@ special_file = 31
 dir = 34
 
 hidden = 33
-selection_color = 94
+# selection_color = 94
+selection_color = 36
 
 header_bg = 38
+# header_bg = 36
 header_fg = 30
 
 [footer]
