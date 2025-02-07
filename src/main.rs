@@ -10,12 +10,13 @@
 pub mod consts;
 pub mod ftype; // complete
 pub mod history;
+pub mod init; // complete
+pub mod os_release;
+pub mod recycle_bin; // complete
 pub mod traits; // complete
 pub mod tui;
 pub mod utils; // complete
-pub mod os_release;
-pub mod recycle_bin; // complete
-pub mod init;
+pub mod conf;
 
 // NOTE: experimental module
 pub mod tui_new;
