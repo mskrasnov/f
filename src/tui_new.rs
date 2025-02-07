@@ -246,6 +246,8 @@ impl F {
             "q".bold().red(),
             " Quit".into(),
         ])
+        .bg(Color::Gray)
+        .fg(Color::Black)
     }
 
     fn ui(&mut self, frame: &mut Frame) {

@@ -33,7 +33,7 @@ fn main() -> Result<()> {
     let fpth = args.get(1).unwrap_or(&binding);
 
     let mut term = ratatui::init();
-    let rslt = tui_new::F::new(fpth)?.run(&mut term);
+    let rslt = tui::F::new(fpth)?.run(&mut term);
     ratatui::restore();
 
     rslt

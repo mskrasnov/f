@@ -4,20 +4,21 @@ pub mod colors;
 
 use crate::consts::{PROG_NAME, PROG_VER};
 use crate::utils::get_home;
-use crate::{traits::Toml, FileEntry, FileType};
-use colors::{color_from_u8, get_style, Colors};
+use crate::{traits::Toml, utils::read_dir, FileEntry, FileType};
+
+use colors::{color_from_u8, get_style, Colors, FileColor};
 
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
-use ratatui::layout::Direction;
-use ratatui::symbols::border;
 use ratatui::{
-    layout::{Constraint, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style, Styled, Stylize},
+    symbols::border,
     text::Line,
-    widgets::{Block, Row, StatefulWidget, Table, TableState},
+    widgets::{Block, Paragraph, Row, StatefulWidget, Table, TableState},
     DefaultTerminal, Frame,
 };
+
 use std::{
     ffi::OsString,
     fs,
@@ -25,221 +26,184 @@ use std::{
     str::FromStr,
 };
 
-/// Get path to the parent (upper) directory
-fn up_dir<P: AsRef<Path>>(current_dir: P) -> FileEntry {
-    FileEntry {
-        file_name: OsString::from_str(".. [UP]").unwrap(),
-        path: fs::canonicalize(current_dir.as_ref())
-            .unwrap_or(Path::new("/tmp").to_path_buf())
-            .parent()
-            .unwrap_or(Path::new("/"))
-            .to_path_buf(),
-        byte_size: 4096,
-        is_hidden: false,
-        file_type: FileType::ParentDirectory,
-    }
-}
-
-fn get_file_color(f: &FileEntry, cols: colors::Panels) -> Color {
-    if !f.is_hidden {
-        match f.file_type {
-            FileType::Directory | FileType::ParentDirectory => color_from_u8(cols.dir),
-            FileType::Link => color_from_u8(cols.link),
-            FileType::Special => color_from_u8(cols.special_file),
-            _ => color_from_u8(cols.file),
-        }
-        .unwrap_or_default()
-    } else {
-        /* Для скрытого файла нужно использовать в зависимости от основного цвета:
-         *  - более светлый цвет. Например, если для обычного файла был Blue, для скрытого - Light Blue;
-         *  - более тёмный цвет. Например, Light Blue -> Blue;
-         *
-         * Для этого смотрим значение основного цвета и прибавляем/вычитаем из него 60, поскольку
-         * разница между обычным и светлым вариантом - 60.
-         */
-        match f.file_type {
-            FileType::Directory | FileType::ParentDirectory => color_from_u8(if cols.dir <= 38 {
-                cols.dir + 60
-            } else {
-                cols.dir - 60
-            }),
-            FileType::Link => color_from_u8(if cols.link <= 38 {
-                cols.link + 60
-            } else {
-                cols.link - 60
-            }),
-            FileType::Special => color_from_u8(if cols.special_file <= 38 {
-                cols.special_file + 60
-            } else {
-                cols.special_file - 60
-            }),
-            _ => color_from_u8(if cols.file <= 38 {
-                cols.file + 60
-            } else {
-                cols.file - 60
-            }),
-        }
-        .unwrap_or_default()
-    }
-}
-
-/// Main `f` interface
+/// Main `f` TUI
 pub struct F {
     colors: Colors,
+    show_hidden: bool,
+    show_preview: bool,
+    error_text: Option<String>,
+
     ts: TableState,
     current_dir: PathBuf,
     rows: Vec<FileEntry>,
     selected: Option<FileEntry>,
     idx: Option<usize>,
-    error_text: Option<String>,
-    show_hidden: bool,
 
     is_exit: bool,
 }
 
 impl F {
     pub fn new<P: AsRef<Path>>(pth: P) -> Result<Self> {
+        let rows = read_dir(&pth, false)?;
+
         Ok(Self {
             current_dir: pth.as_ref().to_path_buf(),
             colors: Colors::parse("./colors.toml").unwrap_or_default(),
             ts: TableState::default(),
-            rows: {
-                let dir = fs::read_dir(&pth)?;
-                let mut rows = dir
-                    .map(|entry| FileEntry::from_dir_entry(&entry.unwrap()).unwrap())
-                    .collect::<Vec<_>>();
-                if pth.as_ref() != Path::new("/") {
-                    rows.insert(0, up_dir(&pth))
-                };
-                rows.sort_by_key(|key| key.file_name.clone());
-                rows = rows
-                    .iter()
-                    .filter_map(|entry| {
-                        if entry.is_hidden {
-                            None
-                        } else {
-                            Some(entry.clone())
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                rows
+            selected: if rows.len() > 0 {
+                Some(rows[0].clone())
+            } else {
+                None
             },
-            selected: None,
+            rows,
             idx: None,
             error_text: None,
             show_hidden: false,
+            show_preview: true,
 
             is_exit: false,
         })
     }
 
     fn rescan_dir(&mut self) -> Result<()> {
-        self.rows = {
-            let dir = fs::read_dir(&self.current_dir)?;
-            let mut rows = dir
-                .filter_map(|entry| entry.ok()) // обрабатываем только то, что можем прочитать
-                .filter_map(|entry| FileEntry::from_dir_entry(&entry).ok()) // обрабатываем только то, что можем использовать
-                .collect::<Vec<_>>();
-
-            if !self.show_hidden {
-                rows = rows
-                    .iter()
-                    .filter_map(|entry| {
-                        if entry.is_hidden {
-                            None
-                        } else {
-                            Some(entry.clone())
-                        }
-                    })
-                    .collect::<Vec<_>>();
-            }
-
-            rows.sort_by_key(|key| key.file_name.clone());
-
-            if &self.current_dir != Path::new("/") {
-                rows.insert(0, up_dir(&self.current_dir));
-            };
-
-            rows
-        };
-
-        self.rows.sort_by_key(|key| key.file_name.clone());
+        self.rows = read_dir(&self.current_dir, self.show_hidden)?;
         if self.rows.len() > 0 {
             self.idx = Some(0);
-            self.ts.select(Some(0));
+            self.ts.select(self.idx);
         }
         Ok(())
+    }
+
+    fn exit(&mut self) {
+        self.is_exit = true;
     }
 
     fn remove_error_msg(&mut self) {
         self.error_text = None;
     }
 
-    pub fn run(&mut self, term: &mut DefaultTerminal) -> Result<()> {
-        while !self.is_exit {
-            term.draw(|frame| self.ui(frame))?;
-            self.handle_events()?;
-        }
-        Ok(())
-    }
-
-    pub fn set_current_dir(&mut self, dir: PathBuf) {
-        self.current_dir = dir;
-    }
-
     fn handle_events(&mut self) -> Result<()> {
         match event::read()? {
-            Event::Key(key) if key.kind == KeyEventKind::Press => self.handle_key_event(key),
+            Event::Key(key) if key.kind == KeyEventKind::Press => {
+                self.handle_key_event(key);
+            }
             _ => {}
         };
         Ok(())
     }
 
+    fn update_idx(&mut self) {
+        self.rows
+            .get(self.ts.selected().unwrap_or(0))
+            .cloned()
+            .clone_into(&mut self.selected);
+        self.idx = Some(self.ts.selected().unwrap_or(0));
+    }
+
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
-            KeyCode::F(10) | KeyCode::Char('q') | KeyCode::Char('й') => self.is_exit = true,
+            KeyCode::F(8) => {
+                if let Some(selected) = &self.selected {
+                    if selected.file_name == OsString::from_str(".. [UP]").unwrap()
+                        || self.idx == Some(0)
+                    {
+                        self.error_text = Some("Failed to remove parent directory".to_string());
+                    } else {
+                        if let Err(why) = selected.remove() {
+                            self.error_text = Some(why.to_string());
+                        } else {
+                            if let Err(why) = self.rescan_dir() {
+                                self.error_text = Some(why.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+            KeyCode::Delete => {
+                if let Some(selected) = &self.selected {
+                    if selected.file_name == OsString::from_str(".. [UP]").unwrap()
+                        || self.idx == Some(0)
+                    {
+                        self.error_text = Some("Failed to remove parent directory".to_string());
+                    } else {
+                        if let Err(why) = selected.remove_bin() {
+                            self.error_text = Some(why.to_string());
+                        } else {
+                            if let Err(why) = self.rescan_dir() {
+                                self.error_text = Some(why.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+            KeyCode::F(10) | KeyCode::Char('q') | KeyCode::Char('й') => {
+                self.exit();
+            }
+
             KeyCode::Down | KeyCode::Char('j') => {
-                if self.idx.unwrap_or(0) < self.rows.len() - 1 {
+                if self.idx.unwrap_or(0) < (self.rows.len() - 1) {
                     self.ts.select_next();
-                    self.rows
-                        .get(self.ts.selected().unwrap_or(0))
-                        .cloned()
-                        .clone_into(&mut self.selected);
-                    self.idx = Some(self.ts.selected().unwrap_or(0));
+                    self.update_idx();
                 }
             }
             KeyCode::Up | KeyCode::Char('k') => {
                 self.ts.select_previous();
-                self.rows
-                    .get(self.ts.selected().unwrap_or(0))
-                    .cloned()
-                    .clone_into(&mut self.selected);
-                self.idx = Some(self.ts.selected().unwrap_or(0));
+                self.update_idx();
             }
-            KeyCode::Home | KeyCode::Char('h') => {
+            KeyCode::Home | KeyCode::Char('H') => {
                 if self.rows.len() > 0 {
                     self.idx = Some(0);
                     self.ts.select(self.idx);
                 }
             }
-            KeyCode::End | KeyCode::Char('l') => {
+            KeyCode::End | KeyCode::Char('L') => {
                 if self.rows.len() > 0 {
                     self.idx = Some(self.rows.len() - 1);
                     self.ts.select(self.idx);
                 }
             }
-            KeyCode::F(8) => {
-                if let Some(selected) = &self.selected {
-                    if let Err(why) = selected.remove() {
-                        self.error_text = Some(why.to_string());
-                    } else {
-                        if let Err(why) = self.rescan_dir() {
-                            self.error_text = Some(why.to_string());
-                        }
-                    }
+            KeyCode::Char('~') => {
+                let pth = get_home();
+                self.selected = Some(FileEntry {
+                    file_name: OsString::from_str("~").unwrap(),
+                    path: pth.clone(),
+                    byte_size: 4096,
+                    file_type: FileType::Directory,
+                    is_hidden: false,
+                });
+                self.current_dir = pth;
+
+                if let Err(why) = self.rescan_dir() {
+                    self.error_text = Some(why.to_string());
                 }
             }
+            KeyCode::Char('/') => {
+                let pth = Path::new("/").to_path_buf();
+                self.selected = Some(FileEntry {
+                    file_name: OsString::from_str("~").unwrap(),
+                    path: pth.clone(),
+                    byte_size: 4096,
+                    file_type: FileType::Directory,
+                    is_hidden: false,
+                });
+                self.current_dir = pth;
+
+                if let Err(why) = self.rescan_dir() {
+                    self.error_text = Some(why.to_string());
+                }
+            }
+            KeyCode::Char('.') => {
+                self.show_hidden = !self.show_hidden;
+                if let Err(why) = self.rescan_dir() {
+                    self.error_text = Some(why.to_string());
+                }
+            }
+            KeyCode::Char('p') => {
+                self.show_preview = !self.show_preview;
+            }
+
             KeyCode::Enter => {
+                self.remove_error_msg();
                 if let Some(selected) = self.selected.clone() {
                     // Сохраняем путь до предыдущей текущей директории чтобы восстановить его
                     // в случае ошибки (например, когда не можем зайти в новую директорию)
@@ -254,34 +218,39 @@ impl F {
                     }
                 }
             }
-            KeyCode::Char('~') => {
-                let pth = get_home();
 
-                self.selected = Some(FileEntry {
-                    file_name: OsString::from_str("~").unwrap(),
-                    path: pth.clone(),
-                    byte_size: 4096,
-                    file_type: FileType::Directory,
-                    is_hidden: false,
-                });
-                self.current_dir = pth;
-
-                let rescan = self.rescan_dir();
-                if rescan.is_err() {
-                    self.error_text = Some(rescan.err().unwrap().to_string());
-                }
-            }
-            KeyCode::Char('.') => {
-                self.show_hidden = !self.show_hidden;
-
-                let rescan = self.rescan_dir();
-                if rescan.is_err() {
-                    self.error_text = Some(rescan.err().unwrap().to_string());
-                }
-            }
             KeyCode::Esc => self.remove_error_msg(),
+            KeyCode::Char('c') => self.update_colors(),
             _ => {}
         }
+    }
+
+    fn update_colors(&mut self) {
+        match Colors::parse("./colors.toml") {
+            Ok(colors) => self.colors = colors,
+            Err(why) => self.error_text = Some(why.to_string()),
+        }
+    }
+
+    fn keys(&self) -> Line<'_> {
+        Line::from(vec![
+            "F8".bold().red(),
+            " Force delete  ".into(),
+            "Del".bold().red(),
+            " Safe delete  ".into(),
+            "~".bold().red(),
+            " Go home  ".into(),
+            "/".bold().red(),
+            " Go root  ".into(),
+            ".".bold().red(),
+            " Show hidden  ".into(),
+            "p".bold().red(),
+            " Show preview  ".into(),
+            "q".bold().red(),
+            " Quit".into(),
+        ])
+        .bg(Color::Gray)
+        .fg(Color::Black)
     }
 
     fn ui(&mut self, frame: &mut Frame) {
@@ -293,6 +262,8 @@ impl F {
                 Constraint::Length(1),
             ])
             .split(frame.area());
+
+        frame.render_widget(self.keys(), chunks[2]);
 
         let tcols = self.colors.title;
         let title = match &self.error_text {
@@ -308,111 +279,119 @@ impl F {
         };
         frame.render_widget(title, chunks[0]);
 
-        let fcols = self.colors.footer;
-        let footer = Line::from(vec![
-            "F1".set_style(get_style(fcols.key_code, fcols.key_code_modifier)),
-            " ".into(),
-            "Help".set_style(get_style(fcols.key_title, fcols.key_title_modifier)),
-            "  ".into(),
-            "F2".set_style(get_style(fcols.key_code, fcols.key_code_modifier)),
-            " ".into(),
-            "Info".set_style(get_style(fcols.key_title, fcols.key_title_modifier)),
-            "  ".into(),
-            "F3".set_style(get_style(fcols.key_code, fcols.key_code_modifier)),
-            " ".into(),
-            "View".set_style(get_style(fcols.key_title, fcols.key_title_modifier)),
-            "  ".into(),
-            "F4".set_style(get_style(fcols.key_code, fcols.key_code_modifier)),
-            " ".into(),
-            "Edit".set_style(get_style(fcols.key_title, fcols.key_title_modifier)),
-            "  ".into(),
-            "F5".set_style(get_style(fcols.key_code, fcols.key_code_modifier)),
-            " ".into(),
-            "Copy".set_style(get_style(fcols.key_title, fcols.key_title_modifier)),
-            "  ".into(),
-            "F6".set_style(get_style(fcols.key_code, fcols.key_code_modifier)),
-            " ".into(),
-            "Move".set_style(get_style(fcols.key_title, fcols.key_title_modifier)),
-            "  ".into(),
-            "F7".set_style(get_style(fcols.key_code, fcols.key_code_modifier)),
-            " ".into(),
-            "NDir".set_style(get_style(fcols.key_title, fcols.key_title_modifier)),
-            "  ".into(),
-            "F8".set_style(get_style(fcols.key_code, fcols.key_code_modifier)),
-            " ".into(),
-            "Delete".set_style(get_style(fcols.key_title, fcols.key_title_modifier)),
-            "  ".into(),
-            "F9".set_style(get_style(fcols.key_code, fcols.key_code_modifier)),
-            " ".into(),
-            "Menu".set_style(get_style(fcols.key_title, fcols.key_title_modifier)),
-            "  ".into(),
-            "F10".set_style(get_style(fcols.key_code, fcols.key_code_modifier)),
-            "/".set_style(get_style(fcols.key_title, fcols.key_title_modifier)),
-            "q".set_style(get_style(fcols.key_code, fcols.key_code_modifier)),
-            "/".set_style(get_style(fcols.key_title, fcols.key_title_modifier)),
-            "й".set_style(get_style(fcols.key_code, fcols.key_code_modifier)),
-            " ".into(),
-            "Exit".set_style(get_style(fcols.key_title, fcols.key_title_modifier)),
-        ])
-        .style(
-            Style::default()
-                .bg(color_from_u8(fcols.background).unwrap_or_default())
-                .fg(color_from_u8(fcols.key_title).unwrap_or_default()),
-        );
-        frame.render_widget(footer, chunks[2]);
+        let mut ui = FilesView { f: self };
+        ui.ui(chunks[1], frame);
+    }
 
-        let fcols = self.colors.panels;
+    pub fn run(&mut self, term: &mut DefaultTerminal) -> Result<()> {
+        while !self.is_exit {
+            term.draw(|frame| self.ui(frame))?;
+            self.handle_events()?;
+        }
+        Ok(())
+    }
+}
+
+pub struct FilesView<'a> {
+    f: &'a mut F,
+}
+
+impl<'a> FilesView<'a> {
+    fn panel_preview(&self, area: Rect, frame: &mut Frame) {
+        let preview_block = Block::bordered()
+            .border_set(border::DOUBLE)
+            .title(
+                Line::from(" Preview ")
+                    .centered()
+                    .bg(color_from_u8(self.f.colors.panels.header_bg).unwrap_or_default())
+                    .fg(color_from_u8(self.f.colors.panels.header_fg).unwrap_or_default()),
+            )
+            .style(
+                Style::default().fg(color_from_u8(self.f.colors.panels.file).unwrap_or_default()),
+            )
+            .set_style(get_style(
+                self.f.colors.panels.border_active,
+                self.f.colors.panels.file_modifier,
+            ));
+
+        let view = Paragraph::new(match &self.f.selected {
+            None => "-- Nothing to show --".to_string(),
+            Some(selected) => {
+                if selected.byte_size > 2_u64.pow(20) * 10 {
+                    "-- File too large (> 10 MBytes) --".to_string()
+                } else {
+                    match selected.file_type {
+                        //               text files may be executable
+                        FileType::File | FileType::FileExecutable => {
+                            match fs::read_to_string(&selected.path) {
+                                Ok(string) => {
+                                    if string.is_empty() {
+                                        format!("-- Empty file --")
+                                    } else {
+                                        string
+                                    }
+                                }
+                                Err(why) => format!("-- Failed to show file ({why}) --"),
+                            }
+                        }
+                        _ => String::from("-- This file type doesn't supported to show --"),
+                    }
+                }
+            }
+        })
+        .block(preview_block);
+
+        frame.render_widget(view, area);
+    }
+
+    fn files_list(&mut self, area: Rect, frame: &mut Frame) {
         let mut files_block = Block::bordered()
             .border_set(border::DOUBLE)
             .style(
-                Style::new()
-                    .bg(color_from_u8(fcols.background).unwrap_or_default())
-                    .fg(color_from_u8(fcols.file).unwrap_or_default()),
+                Style::default().fg(color_from_u8(self.f.colors.panels.file).unwrap_or_default()),
             )
-            .set_style(get_style(fcols.background, fcols.file_modifier))
-            .title(
-                match &self.selected {
-                    Some(selected) => format!(
-                        " {} ({}/{}) ",
-                        selected.file_name.to_string_lossy(),
-                        self.idx.unwrap_or(0) + 1,
-                        self.rows.len()
-                    ),
-                    None => String::new(),
-                }
-                .bg(Color::Gray)
-                .fg(Color::Black),
-            )
+            .set_style(get_style(
+                self.f.colors.panels.border_active,
+                self.f.colors.panels.file_modifier,
+            ))
+            .title(match &self.f.selected {
+                Some(selected) => format!(
+                    " {} ({}/{}) ",
+                    selected.file_name.to_string_lossy(),
+                    self.f.idx.unwrap_or(0) + 1,
+                    self.f.rows.len()
+                ),
+                None => String::new(),
+            })
             .title_top(
-                Line::from(format!(" {} files in this dir ", self.rows.len()))
-                    .right_aligned()
-                    .bg(Color::Gray)
-                    .fg(Color::Black),
+                Line::from(format!(" {} files in this dir ", self.f.rows.len())).right_aligned(),
             )
             .title_top(
                 Line::from(format!(
                     " {} ",
-                    fs::canonicalize(&self.current_dir).unwrap().display()
+                    fs::canonicalize(&self.f.current_dir).unwrap().display()
                 ))
                 .centered()
-                .bg(Color::Gray)
-                .fg(Color::Black),
+                .bg(color_from_u8(self.f.colors.panels.header_bg).unwrap_or_default())
+                .fg(color_from_u8(self.f.colors.panels.header_fg).unwrap_or_default()),
             );
 
-        if self.show_hidden {
+        if self.f.show_hidden {
             files_block = files_block.title_bottom(" Show hidden files ON ");
         }
 
-        if self.ts.selected().is_none() && !self.rows.is_empty() {
-            self.ts.select(Some(0));
+        if self.f.ts.selected().is_none() && !self.f.rows.is_empty() {
+            self.f.ts.select(Some(0));
         }
 
-        self.ts
+        self.f
+            .ts
             .selected()
-            .and_then(|n| self.rows.get(n).cloned())
-            .clone_into(&mut self.selected);
+            .and_then(|n| self.f.rows.get(n).cloned())
+            .clone_into(&mut self.f.selected);
 
         let max_size_fname_len: u16 = self
+            .f
             .rows
             .iter()
             .map(|f| f.file_name.len())
@@ -421,13 +400,20 @@ impl F {
             .try_into()
             .unwrap_or(0);
 
-        let rows = self.rows.iter().map(|item| {
+        let rows = self.f.rows.iter().map(|item| {
+            let style = FileColor {
+                entry: item,
+                cols: self.f.colors.panels,
+                selected: item.is_hidden,
+            }
+            .style();
+
             Row::new(vec![
                 item.file_name
                     .to_string_lossy()
                     .to_string()
-                    .set_style(get_file_color(&item, fcols)),
-                item.file_type.to_string().into(),
+                    .set_style(style.clone()),
+                item.file_type.to_string().set_style(style),
                 item.size().to_string().into(),
             ])
         });
@@ -438,14 +424,29 @@ impl F {
         ];
 
         let table = Table::new(rows, widths)
-            .row_highlight_style(Style::new().bg(Color::Cyan))
+            .style(
+                Style::new().bg(color_from_u8(self.f.colors.panels.background).unwrap_or_default()),
+            )
+            .row_highlight_style(
+                Style::new()
+                    .bg(color_from_u8(self.f.colors.panels.selection_color).unwrap_or_default()),
+            )
             .block(files_block.clone());
 
-        StatefulWidget::render(
-            table,
-            files_block.inner(frame.area()),
-            frame.buffer_mut(),
-            &mut self.ts,
-        );
+        StatefulWidget::render(table, area, frame.buffer_mut(), &mut self.f.ts);
+    }
+
+    pub fn ui(&mut self, area: Rect, frame: &mut Frame) {
+        if self.f.show_preview {
+            let chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .split(area);
+
+            self.files_list(chunks[0], frame);
+            self.panel_preview(chunks[1], frame);
+        } else {
+            self.files_list(area, frame);
+        }
     }
 }
