@@ -145,11 +145,11 @@ impl Display for FileSize {
             f,
             "{}",
             match self {
-                Self::Bytes(len) => format!("{len} bytes"),
-                Self::KBytes(len) => format!("{len:.2} kbytes"),
-                Self::MBytes(len) => format!("{len:.2} mbytes"),
-                Self::GBytes(len) => format!("{len:.2} gbytes"),
-                Self::TBytes(len) => format!("{len:.2} tbytes"),
+                Self::Bytes(len) => format!("{len} Bytes"),
+                Self::KBytes(len) => format!("{len:.2} KBytes"),
+                Self::MBytes(len) => format!("{len:.2} MBytes"),
+                Self::GBytes(len) => format!("{len:.2} GBytes"),
+                Self::TBytes(len) => format!("{len:.2} TBytes"),
             }
         )
     }
